@@ -1,0 +1,51 @@
+<h2>Create New Form</h2>
+
+<!-- Display general error messages from the component -->
+<div *ngIf="errorMessage" class="error-message">
+  {{ errorMessage }}
+</div>
+
+<!-- Bind the form element to the 'newForm' FormGroup and handle submission -->
+<form [formGroup]="newForm" (ngSubmit)="onSubmit()">
+
+  <!-- Title Field Section -->
+  <div class="form-field">
+    <label for="title">Title:</label>
+    <!-- Bind input to the 'title' FormControl -->
+    <input type="text" id="title" formControlName="title" placeholder="Enter form title">
+
+    <!-- Validation messages for the Title field -->
+    <!-- Show errors only if the control is invalid AND has been touched or modified -->
+    <div *ngIf="title?.invalid && (title?.dirty || title?.touched)" class="validation-errors">
+      <small *ngIf="title?.errors?.['required']">Title is required.</small>
+      <small *ngIf="title?.errors?.['maxlength']">Title cannot exceed 100 characters.</small>
+    </div>
+  </div>
+
+  <!-- Description Field Section -->
+  <div class="form-field">
+    <label for="description">Description:</label>
+    <!-- Bind textarea to the 'description' FormControl -->
+    <textarea id="description" formControlName="description" placeholder="Enter form description (optional)" rows="4"></textarea>
+
+    <!-- Validation messages for the Description field -->
+     <div *ngIf="description?.invalid && (description?.dirty || description?.touched)" class="validation-errors">
+       <small *ngIf="description?.errors?.['maxlength']">Description cannot exceed 500 characters.</small>
+    </div>
+  </div>
+
+  <!-- Form Action Buttons -->
+  <div class="form-actions">
+    <!-- Submit Button -->
+    <!-- Disable button if form is invalid or currently submitting -->
+    <button type="submit" [disabled]="newForm.invalid || isSubmitting">
+      <!-- Change button text based on submission state -->
+      {{ isSubmitting ? 'Creating...' : 'Create Form' }}
+    </button>
+
+    <!-- Cancel/Go Back Button -->
+    <!-- Use type="button" to prevent form submission -->
+    <button type="button" (click)="goBack()" [disabled]="isSubmitting">Cancel</button>
+  </div>
+
+</form>

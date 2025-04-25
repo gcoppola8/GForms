@@ -1,0 +1,64 @@
+services:
+  frontend:
+    build:
+      context: ./frontend # Path to the frontend directory relative to this file
+      dockerfile: Dockerfile # Specifies the Dockerfile name (optional if named Dockerfile)
+    ports:
+      - "80:80" # Map host port 80 to container port 80 (Nginx default)
+    container_name: gform-frontend
+    restart: unless-stopped
+    develop:
+      watch:
+      # Rule 1: Rebuild the image if package files change
+        - path: ./frontend/src
+          action: rebuild
+
+  backend:
+    build:
+      context: ./backend # Path to the backend directory relative to this file
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080" # Map host port 8080 to container port 8080 (Go app's port)
+    container_name: gform-backend
+    restart: unless-stopped
+    # Add environment variables if your backend needs them
+    environment:
+      - DB_HOST=192.168.118.139
+      - DB_PASSWORD=SECRET123
+    #   - DATABASE_URL=postgres://user:password@db:5432/mydatabase?sslmode=disable
+    #   - API_KEY=your_secret_key
+    # Add depends_on if the backend relies on other services (like a database)
+    # depends_on:
+    #   - db
+    develop:
+      watch:
+      # Rule 1: Rebuild the image if package files change
+        - path: ./backend
+          action: rebuild
+        # Rule 2: Sync source code changes directly into the container
+        #- path: ./backend/src # Watch the source directory
+        #  target: /app/src    # Sync changes to this path inside the container
+        #  action: sync
+        # Rule 3 (Alternative to Rule 2): Rebuild if any source file changes
+        # Useful if your backend doesn't support hot-reloading easily
+        # - path: ./backend/src
+        #   action: rebuild
+
+
+  # --- Optional: Add other services like a database ---
+  # db:
+  #   image: postgres:15-alpine
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: mydatabase
+  #     POSTGRES_USER: user
+  #     POSTGRES_PASSWORD: password
+  #   ports:
+  #     - "5432:5432" # Expose DB port only if needed for external access/debugging
+  #   container_name: myapp-db
+  #   restart: unless-stopped
+
+# --- Optional: Define named volumes for persistent data ---
+# volumes:
+#   postgres_data:

@@ -1,0 +1,109 @@
+<div class="response-new-container clr-form clr-form-vertical">
+    <!-- Optional: Link back to the form detail or forms list -->
+    <!-- <a routerLink="/forms/{{ form?.id }}" class="back-link">
+      <cds-icon shape="arrow" direction="left"></cds-icon> Back to Form Details
+    </a> -->
+  
+    <div *ngIf="isLoading" class="loading-indicator">
+      Loading form... Please wait.
+      <!-- Add a Clarity spinner for better UX -->
+      <span class="spinner spinner-inline"></span>
+    </div>
+  
+    <div *ngIf="error && !isLoading" class="error-message alert alert-danger">
+      <div class="alert-items">
+        <div class="alert-item static">
+          <div class="alert-icon-wrapper">
+            <cds-icon class="alert-icon" shape="error-standard"></cds-icon>
+          </div>
+          <span class="alert-text">
+            Error loading form: {{ error }}
+          </span>
+        </div>
+      </div>
+      <!-- Optional: Add a retry button -->
+      <!-- <button (click)="retryLoad()" class="btn btn-sm btn-warning">Retry</button> -->
+    </div>
+    
+    <div *ngIf="form && !isLoading && !error">
+      <h1>{{ form.title }}</h1>
+      <p class="description">{{ form.description }}</p>
+      <hr>
+  
+      <form [formGroup]="responseForm" (ngSubmit)="submitResponse()" novalidate>
+        <h2>Your Response</h2>
+  
+        <div *ngIf="form.questions && form.questions.length > 0; else noQuestions">
+          <ng-container *ngFor="let question of form.questions; let i = index">
+            <div class="clr-form-control" [formGroupName]="i"> <!-- Assuming formGroupName is the index -->
+  
+              <label [for]="'question-' + i" class="clr-control-label">
+                {{ i + 1 }}. {{ question.text }}
+                <span *ngIf="question.is_required" class="required-indicator clr-color-red-700"> *</span>
+              </label>
+  
+              <div class="clr-control-container" [ngClass]="{'clr-error': isControlInvalid(i)}">
+                <!-- Basic Text Input - Adapt based on question.type -->
+                <ng-container [ngSwitch]="question.type">
+                  <!-- Example: Textarea for longer text -->
+                  <textarea *ngSwitchCase="'textarea'"
+                            clrTextarea
+                            [id]="'question-' + i"
+                            formControlName="answer"
+                            [placeholder]="'Your answer for: ' + question.text"
+                            rows="3">
+                  </textarea>
+  
+                  <!-- Example: Simple text input (default) -->
+                  <input *ngSwitchDefault
+                         clrInput
+                         type="text"
+                         [id]="'question-' + i"
+                         formControlName="answer"
+                         [placeholder]="'Your answer for: ' + question.text">
+  
+                  <!-- Add more ngSwitchCase blocks here for other question types like 'radio', 'checkbox', 'select', etc. -->
+  
+                </ng-container>
+  
+                <clr-control-error *ngIf="isControlInvalid(i)">
+                  <span *ngIf="getControl(i)?.errors?.['required']">This field is required.</span>
+                </clr-control-error>
+              </div>
+            </div>
+          </ng-container>
+        </div>
+  
+        <ng-template #noQuestions>
+          <p>This form currently has no questions defined.</p>
+        </ng-template>
+  
+        <div class="form-actions" *ngIf="form.questions && form.questions.length > 0">
+           <button type="submit" class="btn btn-primary" [disabled]="responseForm.invalid || isSubmitting">
+             <span *ngIf="!isSubmitting">Submit Response</span>
+             <span *ngIf="isSubmitting" class="spinner spinner-inline spinner-sm"></span>
+             <span *ngIf="isSubmitting"> Submitting...</span>
+           </button>
+           <!-- Optional: Add a cancel button -->
+           <!-- <button type="button" class="btn btn-outline" (click)="cancel()">Cancel</button> -->
+        </div>
+  
+        <!-- Submission status messages -->
+        <div *ngIf="submitError" class="alert alert-danger submit-status">
+           <div class="alert-items">...</div> <!-- Similar structure as loading error -->
+           Error submitting response: {{ submitError }}
+        </div>
+         <div *ngIf="submitSuccess" class="alert alert-success submit-status">
+           <div class="alert-items">...</div> <!-- Similar structure as loading error -->
+           Response submitted successfully!
+        </div>
+  
+      </form>
+    </div>
+  
+    <div *ngIf="!form && !isLoading && !error">
+      <p>Form data could not be loaded or the form does not exist.</p>
+    </div>
+  
+  </div>
+  
