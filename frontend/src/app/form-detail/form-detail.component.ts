@@ -1,6 +1,6 @@
 import { Component, OnInit, OnDestroy, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
-import { FormService, Form, Question, FormResponse } from '../../services/gforms-backend.service'; // Adjust path if needed
+import { FormService, Form, Question, FormResponse, NewFormResponse } from '../../services/gforms-backend.service'; // Adjust path if needed
 import { Subscription } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { ClarityModule } from '@clr/angular'; // Import ClarityModule if using Clarity components
@@ -32,7 +32,7 @@ export class FormDetailComponent implements OnInit, OnDestroy {
       const formId = params.get('id');
       if (formId) {
         this.loadFormDetails(formId);
-        // this.loadFormResponses(formId); // Call this when response fetching is implemented
+        this.loadFormResponses(formId); // Call this when response fetching is implemented
       } else {
         this.error = 'Form ID not found in route.';
         this.isLoading = false;
@@ -70,9 +70,19 @@ export class FormDetailComponent implements OnInit, OnDestroy {
   // Placeholder function to load responses - Implement this based on your API
   loadFormResponses(formId: string): void {
      console.log('Placeholder: Loading responses for form ID:', formId);
-     // Example:
-     // this.isLoading = true; // Potentially manage loading state across both calls
-     // this.responsesSub = this.formService.getResponsesForForm(formId).subscribe({ ... });
+     this.isLoading = true; // Potentially manage loading state across both calls
+     this.formService.getFormResponses(formId).subscribe({
+      next: (data) => {
+        this.responses = data;
+        this.isLoading = false;
+        console.log('Form responses loaded:', this.responses);
+      },
+      error: (err) => {
+        console.error('Error loading form responses:', err);
+        this.error = err.message || 'Could not load form responses.';
+        this.isLoading = false;
+      }
+    });
      this.responses = []; // Reset or load actual data
   }
 
@@ -82,5 +92,36 @@ export class FormDetailComponent implements OnInit, OnDestroy {
        this.loadFormDetails(formId);
        // this.loadFormResponses(formId);
     }
+  }
+
+  sendResponse(): void {
+    if (this.form?.questions === undefined || this.form?.questions.length === 0) {
+      console.error('Form has no questions to submit.');
+      return;
+    }
+
+    let nfr : NewFormResponse = {
+      form_id: this.form!.id,
+      respondent_user_id: 'user-id-1',
+      answers: [
+        {
+          question_id: this.form!.questions[0].id,
+          value: 'answer 1'
+        },
+        {
+          question_id: this.form!.questions[1].id,
+          value: 'answer 2'
+        }
+      ]
+    };
+
+    this.formService.submitFormResponse(this.form!.id, nfr).subscribe({
+      next: (data) => {
+        console.log('Form response submitted:', data);
+      },
+      error: (err) => {
+        console.error('Error submitting form response:', err);
+      }
+    });
   }
 }

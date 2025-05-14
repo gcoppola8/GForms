@@ -33,18 +33,21 @@
   
       <div class="actions-section">
         <button [routerLink]="['/forms', form.id, 'responses']" class="btn btn-primary">View Responses</button>
+        <button class="btn btn-warning" [disabled]="form.questions === undefined || form.questions.length === 0" (click)="sendResponse()">Generate fake Response</button>
+        <button class="btn btn-info" [routerLink]="['/forms', form.id, 'respond']">Respond to Form</button>
+        <button class="btn btn-secondary" [routerLink]="['/forms', form.id, 'questions']">Add questions</button>
       </div>
 
       <section class="responses-section">
         <h2>Submitted Responses</h2>
         <!-- Response listing logic will go here -->
         <div *ngIf="responses.length > 0">
+          <div class="responses-list-container">
+
            <p>Displaying {{ responses.length }} response(s).</p>
-           <!-- Example: Iterate through responses -->
            <ul>
              <li *ngFor="let response of responses">
                Response ID: {{ response.id }} - Submitted: {{ response.created_at | date:'medium' }}
-               <!-- Further details about answers can be added here -->
              </li>
            </ul>
         </div>
@@ -52,6 +55,7 @@
            <p>No responses have been submitted for this form yet.</p>
         </div>
          <!-- Add loading/error handling specific to responses if loaded separately -->
+          </div>
       </section>
   
     </div>

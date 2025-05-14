@@ -1,46 +1,40 @@
-import { Component, CUSTOM_ELEMENTS_SCHEMA } from '@angular/core';
+import { Component, CUSTOM_ELEMENTS_SCHEMA, OnInit } from '@angular/core';
 // Import RouterLink along with RouterOutlet
-import { RouterOutlet, RouterLink } from '@angular/router';
-import { Form, FormService } from '../services/gforms-backend.service';
 import { CommonModule } from '@angular/common';
+import { RouterLink, RouterOutlet } from '@angular/router';
+import { Observable } from 'rxjs';
+import { AccountService } from '../services/account-service.service';
 
 @Component({
   selector: 'app-root',
   standalone: true,
   // Add RouterLink here:
-  imports: [RouterOutlet, RouterLink, CommonModule],
+  imports: [RouterLink, RouterOutlet, RouterLink, CommonModule],
   templateUrl: './app.component.html',
   styleUrl: './app.component.css',
-  schemas: [CUSTOM_ELEMENTS_SCHEMA]
+  schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AppComponent {
   title = 'gforms-app';
-  forms: Form[] = [];
   isLoading: boolean = true;
   error: string | null = null;
 
-  constructor(private gformsService: FormService) { }
+  userLogged$: Observable<string | null>;
 
-  ngOnInit(): void {
-    this.loadForms();
+  constructor(private accountService: AccountService) {
+    this.userLogged$ = this.accountService.currentUser$;
   }
 
-  loadForms(): void {
-    this.isLoading = true;
-    this.error = null;
+  ngOnInit(): void {
+    this.isLoading = false;
+  }
 
-    this.gformsService.getForms().subscribe({
-      next: (data) => {
-        this.forms = data;
-        this.isLoading = false;
-        console.log('Forms loaded:', this.forms);
+  logout(): void {
+    this.accountService.signout().subscribe({
+      next: () => {
+        console.log('Signout ok');
       },
-      error: (err) => {
-        console.error('Error loading forms:', err);
-        // Consider providing a more user-friendly error message or using the one from the service
-        this.error = 'Could not load forms. Please check your connection or try again later.';
-        this.isLoading = false;
-      }
+      error: (err) => console.error('Signout Error: ', err)
     });
   }
 }

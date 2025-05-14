@@ -3,6 +3,8 @@ services:
     build:
       context: ./frontend # Path to the frontend directory relative to this file
       dockerfile: Dockerfile # Specifies the Dockerfile name (optional if named Dockerfile)
+      args:
+        - BUILD_ENV=development
     ports:
       - "80:80" # Map host port 80 to container port 80 (Nginx default)
     container_name: gform-frontend
@@ -24,6 +26,7 @@ services:
     # Add environment variables if your backend needs them
     environment:
       - DB_HOST=192.168.118.139
+      - DB_NAME=gform_db
       - DB_PASSWORD=SECRET123
     #   - DATABASE_URL=postgres://user:password@db:5432/mydatabase?sslmode=disable
     #   - API_KEY=your_secret_key

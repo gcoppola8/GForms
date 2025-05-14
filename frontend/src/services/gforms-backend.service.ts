@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
@@ -10,9 +10,11 @@ export interface Question {
   id: string; // UUID
   text: string;
   type: string; // Consider using a literal type if possible, e.g., 'rating' | 'text' | 'multiple_choice'
+  extra_info: string;
   is_required: boolean;
   created_at: string; // ISO 8601 Date string
   updated_at: string; // ISO 8601 Date string
+  options_text: string | null;
 }
 
 /**
@@ -42,16 +44,15 @@ export interface FormResponse {
 
 export interface Answer {
   id: string;
-  response_id: string;
   question_id: string;
-  answer_text: string;
+  value: string;
   created_at: string;
   updated_at: string;
-
 }
 
 export type NewFormDto = Omit<Form, 'id' | 'created_at' | 'updated_at' | 'questions'> & { questions?: Omit<Question, 'id' | 'created_at' | 'updated_at'>[] };
 export type UpdateFormDto = Partial<Omit<Form, 'id' | 'creator_user_id' | 'created_at' | 'updated_at'>>;
+export type NewFormResponse = Omit<FormResponse, 'id' | 'created_at' | 'updated_at' | 'answers'> & { answers?: Omit<Answer, 'id' | 'created_at' | 'updated_at'>[] };
 
 
 @Injectable({
@@ -63,14 +64,15 @@ export class FormService {
   // Adjusted apiUrl to point to a potential 'forms' endpoint. Modify if your backend uses a different path.
   private apiUrl = 'http://localhost:8080/forms';
 
+  private http = inject(HttpClient);
+
   private httpOptions = {
     headers: new HttpHeaders({
       'Content-Type': 'application/json'
       // Add other headers here if needed (e.g., Authorization)
-    })
+    }),
+    withCredentials: true
   };
-
-  constructor(private http: HttpClient) { }
 
   // --- Form Methods ---
 
@@ -79,7 +81,7 @@ export class FormService {
    * @returns Observable<Form[]>
    */
   getForms(): Observable<Form[]> {
-    return this.http.get<Form[]>(this.apiUrl)
+    return this.http.get<Form[]>(this.apiUrl, this.httpOptions)
       .pipe(
         catchError(this.handleError)
       );
@@ -92,7 +94,7 @@ export class FormService {
    */
   getFormById(id: string): Observable<Form> {
     const url = `${this.apiUrl}/${id}`;
-    return this.http.get<Form>(url)
+    return this.http.get<Form>(url, this.httpOptions)
       .pipe(
         catchError(this.handleError)
       );
@@ -156,13 +158,12 @@ export class FormService {
         );
     }
 
-    // add submitFormResponses
     /**
      * @param formId 
      * @param response 
      * @returns 
      */    
-    submitFormResponse(formId: string, response: FormResponse): Observable<any> {
+    submitFormResponse(formId: string, response: NewFormResponse): Observable<any> {
       const url = `${this.apiUrl}/${formId}/responses`;
       return this.http.post(url, response, this.httpOptions)
         .pipe(

@@ -1,9 +1,9 @@
 ### Variables
 @baseUrl = http://localhost:8080
 
-@formId = 9314334a-0446-459b-8f89-59cd5f64f027
-@questionId1 = ad3612c5-bcce-4117-84a7-5d87d984202e
-@questionId2 = 261f0be1-41d7-48ed-bf0f-293eadf6047d
+@formId = 474204b5-0bc5-40e4-aa35-9d7faed4aec5
+@questionId1 = 525c25d0-27c1-4612-848a-02baac82d16e
+@questionId2 = b2894b78-d46c-41e5-b46d-fbefc60b10ee
 
 ### Create a new Form
 # Creates a form with two questions.

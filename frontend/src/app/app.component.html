@@ -10,36 +10,46 @@
       <a routerLink="/" class="nav-link nav-text">Home</a>
     </nav>
 
+
     <div class="header-actions">
-      <a href="javascript://" class="nav-link">
-        <cds-icon shape="cog"></cds-icon>
-      </a>
+      @if (userLogged$ | async; as username) {
+        <div class="nav-text nav-link">Welcome, {{ username }}</div>
+        <a (click)="logout()" class="nav-link nav-text" style="cursor: pointer;">
+          Logout
+        </a>
+        <a href="javascript://" class="nav-link">
+          <cds-icon shape="cog"></cds-icon>
+        </a>
+      } @else {
+        <a routerLink="/account/login" class="nav-link nav-text">Login</a>
+        <a routerLink="/account/register" class="nav-link nav-text">Register</a>
+      }
     </div>
   </header>
 
-  <!-- Useful possibility for a subnav -->
-  <!-- <nav class="subnav">
-    <ul class="nav">
-      <li class="nav-item">
-        <a class="nav-link active" href="javascript://" aria-current="page">Dashboard</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="javascript://">Management</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="javascript://">Cloud</a>
-      </li>
-      <li class="nav-item">
-        <a class="nav-link" href="javascript://">Tenants</a>
-      </li>
-    </ul>
-  </nav> -->
-
   <div class="content-container">
-    <div class="content-area" style="margin:20px">
-      <router-outlet></router-outlet>
+    <div class="content-area">
+      <!-- Show loading indicator -->
+      <div *ngIf="isLoading" class="loading-indicator">
+        Loading... <!-- Or use a Clarity spinner -->
+      </div>
+
+      <!-- Show error message -->
+      <div *ngIf="error" class="alert alert-danger">
+        {{ error }}
+      </div>
+
+      <!-- Render routed components when not loading and no error -->
+      <router-outlet *ngIf="!isLoading && !error"></router-outlet>
+    </div>
+
+    <div class="content-container">
+      <div class="content-area" style="margin:20px">
+        <router-outlet></router-outlet>
+      </div>
     </div>
   </div>
+
 </clr-main-container>
 
 <footer class="app-footer">
@@ -47,4 +57,3 @@
     <span>&copy; 2024 GForms App</span>
   </div>
 </footer>
-

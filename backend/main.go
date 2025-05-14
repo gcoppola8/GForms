@@ -11,30 +11,38 @@ import (
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 
+	"github.com/go-crypt/crypt"
+	"github.com/go-crypt/crypt/algorithm"
+	"github.com/go-crypt/crypt/algorithm/argon2"
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"
 	"github.com/spf13/viper"
 
 	"github.com/gin-contrib/cors"
+	"github.com/gin-contrib/sessions"
+	"github.com/gin-contrib/sessions/cookie"
 	"github.com/gin-gonic/gin"
 )
 
 // --- Config Struct (Optional but recommended for type safety) ---
 type Config struct {
-	DBHost      string `mapstructure:"DB_HOST"`
-	DBUser      string `mapstructure:"DB_USER"`
-	DBPassword  string `mapstructure:"DB_PASSWORD"`
-	DBName      string `mapstructure:"DB_NAME"`
-	DBPort      string `mapstructure:"DB_PORT"`
-	DBSSLMode   string `mapstructure:"DB_SSLMODE"`
-	DBTimezone  string `mapstructure:"DB_TIMEZONE"`
-	AppEnv      string `mapstructure:"APP_ENV"`
-	Port        string `mapstructure:"PORT"`
-	FrontendURL string `mapstructure:"FRONTEND_URL"`
+	DBHost           string `mapstructure:"DB_HOST"`
+	DBUser           string `mapstructure:"DB_USER"`
+	DBPassword       string `mapstructure:"DB_PASSWORD"`
+	DBName           string `mapstructure:"DB_NAME"`
+	DBPort           string `mapstructure:"DB_PORT"`
+	DBSSLMode        string `mapstructure:"DB_SSLMODE"`
+	DBTimezone       string `mapstructure:"DB_TIMEZONE"`
+	AppEnv           string `mapstructure:"APP_ENV"`
+	Port             string `mapstructure:"PORT"`
+	FrontendURL      string `mapstructure:"FRONTEND_URL"`
+	UserVerification bool   `mapstructure:"FF_USER_VERIFICATION"`
 }
 
 var DB *gorm.DB
 var AppConfig Config
+var digest algorithm.Digest
+var hasher *argon2.Hasher
 
 // --- Entities ---
 
@@ -57,6 +65,7 @@ type Question struct {
 	Text       string         `json:"text" binding:"required"`
 	Type       string         `json:"type"` // Consider defining allowed types (e.g., text, rating, choice)
 	IsRequired bool           `json:"is_required"`
+	ExtraInfo  string         `json:"extra_info"`
 	CreatedAt  time.Time      `json:"created_at"` // Add explicitly
 	UpdatedAt  time.Time      `json:"updated_at"` // Add explicitly
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
@@ -82,6 +91,31 @@ type Response struct {
 	CreatedAt        time.Time      `json:"created_at"` // Add explicitly
 	UpdatedAt        time.Time      `json:"updated_at"` // Add explicitly
 	DeletedAt        gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+type User struct {
+	ID        uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Username  string         `json:"username" binding:"required"`
+	Email     string         `json:"email" binding:"required"`
+	Password  string         `json:"-" binding:"required"`
+	Verified  bool           `json:"verified"`
+	CreatedAt time.Time      `json:"created_at"` // Add explicitly
+	UpdatedAt time.Time      `json:"updated_at"` // Add explicitly
+	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
+}
+
+type Verification struct {
+	gorm.Model
+	UserID           uuid.UUID `json:"user_id" gorm:"type:uuid"`
+	User             User      `json:"-" gorm:"foreignKey:UserID"`
+	VerificationCode string    `json:"verification_code"`
+	ExpiresAt        time.Time `json:"expires_at"`
+}
+
+type SignupRequest struct {
+	Username string `json:"username"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
 }
 
 // --- Load Configuration Function ---
@@ -129,6 +163,7 @@ func LoadConfig() {
 	viper.SetDefault("APP_ENV", "development")
 	viper.SetDefault("PORT", "8080")
 	viper.SetDefault("FRONTEND_URL", "frontend") // Default for dev
+	viper.SetDefault("FF_USER_VERIFICATION", true)
 
 	// 4. Enable reading from Environment Variables
 	viper.AutomaticEnv() // Read in environment variables that match keys
@@ -149,9 +184,23 @@ func LoadConfig() {
 		log.Fatalf("FATAL: DB_PASSWORD must be set in production environment!")
 	}
 
+	if hasher, err = argon2.New(argon2.WithProfileRFC9106LowMemory()); err != nil {
+		panic(err)
+	}
+
 	log.Println("Configuration loaded successfully.")
 	// For debugging purposes during development:
 	// log.Printf("Debug: Loaded Config: %+v\n", AppConfig)
+}
+
+func NewDecoderArgon2idOnly() (decoder *crypt.Decoder, err error) {
+	decoder = crypt.NewDecoder()
+
+	if err = argon2.RegisterDecoderArgon2id(decoder); err != nil {
+		return nil, err
+	}
+
+	return decoder, nil
 }
 
 // --- Database Functions ---
@@ -188,6 +237,8 @@ func AutoMigrateDatabase() {
 		&Question{},
 		&Response{},
 		&Answer{},
+		&User{},
+		&Verification{},
 	)
 
 	if err != nil {
@@ -195,9 +246,6 @@ func AutoMigrateDatabase() {
 	}
 	log.Println("Database auto-migration completed")
 }
-
-// --- CRUD Operations ---
-// Note: Using DB-generated UUIDs simplifies these functions.
 
 // CreateForm saves a new form and its questions to the database.
 func CreateForm(form *Form) error {
@@ -235,6 +283,11 @@ func GetAllForms() ([]Form, error) {
 		forms = []Form{}
 	}
 	return forms, nil
+}
+
+func (form *Form) SetQuestions(questions []Question) error {
+	form.Questions = questions
+	return UpdateForm(form)
 }
 
 func (form *Form) AddQuestion(question *Question) error {
@@ -367,9 +420,9 @@ func createFormHandler(c *gin.Context) {
 	c.JSON(http.StatusCreated, newForm)
 }
 
-func addQuestionHandler(c *gin.Context) {
+func setQuestionsHandler(c *gin.Context) {
 	formIDStr := c.Param("formId")
-	var newQuestion Question
+	var questions []Question
 
 	foundForm, err := GetFormByID(formIDStr)
 
@@ -379,16 +432,26 @@ func addQuestionHandler(c *gin.Context) {
 		return
 	}
 
-	if err := c.ShouldBindJSON(&newQuestion); err != nil {
-		log.Printf("Error binding JSON question: %v", err)
+	if err := c.ShouldBindJSON(&questions); err != nil {
+		log.Printf("Error binding JSON questions: %v", err)
 		c.JSON(http.StatusBadRequest, "Invalid or incomplete JSON request: "+err.Error())
 		return
 	}
 
-	if err := foundForm.AddQuestion(&newQuestion); err != nil {
-		log.Printf("Error adding question to form: %v", err)
-		c.JSON(http.StatusInternalServerError, "Could not add question to form")
+	if len(questions) > 50 {
+		log.Printf("Error too many questions (max length is 50)")
+		c.JSON(http.StatusBadRequest, "Too many questions (max length is 50)")
 		return
+	}
+
+	foundForm.SetQuestions(questions)
+
+	for _, q := range questions {
+		if err := foundForm.AddQuestion(&q); err != nil {
+			log.Printf("Error adding question to form: %v", err)
+			c.JSON(http.StatusInternalServerError, "Could not add question to form")
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, foundForm)
@@ -402,6 +465,11 @@ func listFormsHandler(c *gin.Context) {
 		log.Printf("Error retrieving forms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving forms"})
 		return
+	}
+
+	log.Printf("Received %d cookies", len(c.Request.Cookies()))
+	for _, cookie := range c.Request.Cookies() {
+		log.Printf("Received cookie: %s=%s", cookie.Name, cookie.Value)
 	}
 
 	// Return the list of forms (will be an empty array [] if none found)
@@ -550,6 +618,152 @@ func getFormResponsesHandler(c *gin.Context) {
 	c.JSON(http.StatusOK, responses)
 }
 
+// --- Authentication Handlers --- //
+func signupHandler(c *gin.Context) {
+	var signupRequest SignupRequest
+	if err := c.ShouldBindJSON(&signupRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var count int64 = 0
+	DB.Find(&User{}, "email = ?", signupRequest.Email).Count(&count)
+
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Email already exists"})
+		return
+	}
+
+	DB.Find(&User{}, "username = ?", signupRequest.Username).Count(&count)
+	if count > 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Username already exists"})
+		return
+	}
+
+	var err error
+	if digest, err = hasher.Hash(signupRequest.Password); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var newUser User
+	newUser.Username = signupRequest.Username
+	newUser.Email = signupRequest.Email
+	newUser.Password = digest.Encode()
+
+	if ret := DB.Create(&newUser); ret.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ret.Error})
+		return
+	}
+
+	var newUserVerification Verification
+	newUserVerification.UserID = newUser.ID
+	newUserVerification.VerificationCode = uuid.New().String()
+	newUserVerification.ExpiresAt = time.Now().Add(150 * time.Hour) // 24 hours
+
+	if ret := DB.Create(&newUserVerification); ret.Error != nil {
+		log.Println("Error creating verification record:", ret.Error)
+	}
+
+	log.Printf("Account %s created and can be verified at http://%s/api/account/verify?verificationCode=%s",
+		newUser.Username,
+		c.Request.Host,
+		newUserVerification.VerificationCode)
+
+	c.JSON(http.StatusCreated, newUser)
+}
+
+func signinHandler(c *gin.Context) {
+	var loginRequest SignupRequest
+
+	if err := c.ShouldBindJSON(&loginRequest); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user User
+	DB.Find(&user, "email = ?", loginRequest.Email)
+
+	if user.ID == uuid.Nil {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Wrong credentials"})
+		return
+	}
+
+	if AppConfig.UserVerification {
+		if user.Verified == false {
+			c.JSON(http.StatusForbidden, gin.H{"error": "Account not verified"})
+			return
+		}
+	}
+
+	var valid bool
+	var err error
+	if valid, err = crypt.CheckPassword(loginRequest.Password, user.Password); err != nil || !valid {
+		c.JSON(http.StatusForbidden, gin.H{"error": "Wrong credentials"})
+		return
+	}
+
+	session := sessions.Default(c)
+	session.Set("username", user.Username)
+	session.Save()
+
+	c.JSON(http.StatusOK, gin.H{"username": user.Username, "email": user.Email, "message": "Signed in successfully"})
+}
+
+func logoutHandler(c *gin.Context) {
+	session := sessions.Default(c)
+	session.Clear()
+	session.Save()
+}
+
+func verifyHandler(c *gin.Context) {
+	verificationParam := c.Query("verificationCode")
+
+	var verification Verification
+	DB.Find(&verification, "verification_code = ?", verificationParam)
+
+	if verification.ID == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid verification code"})
+		return
+	}
+
+	if time.Now().After(verification.ExpiresAt) {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Verification code has expired"})
+		return
+	}
+
+	// Fetch the user from the database to ensure we're working with the latest data
+	var user User
+	if err := DB.First(&user, verification.UserID).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user data"})
+		return
+	}
+
+	user.Verified = true
+	DB.Save(&user)
+	DB.Delete(&verification) // Delete the verification record after successful verification
+
+}
+
+func whoamiHandler(c *gin.Context) {
+	session := sessions.Default(c)
+	username := session.Get("username")
+
+	if username == nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Not signed in"})
+		return
+	}
+
+	var user User
+	DB.Find(&user, "username = ?", username)
+
+	if user.ID == uuid.Nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "User not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"username": user.Username, "email": user.Email, "message": "User details retrieved successfully"})
+}
+
 // --- Main Application Setup ---
 
 func main() {
@@ -572,6 +786,9 @@ func main() {
 
 	// Initialize Gin router
 	router := gin.Default() // Includes logger and recovery middleware
+
+	store := cookie.NewStore([]byte("secret"))
+	router.Use(sessions.Sessions("gform_session", store))
 
 	// --- CORS Configuration ---
 	config := cors.DefaultConfig()
@@ -601,10 +818,10 @@ func main() {
 	// Group routes under /forms
 	formRoutes := router.Group("/forms")
 	{
-		formRoutes.POST("", createFormHandler)                   // POST /forms
-		formRoutes.PUT("/:formId/questions", addQuestionHandler) // PUT /forms/{formId}/questions")
-		formRoutes.GET("", listFormsHandler)                     // GET /forms
-		formRoutes.GET("/:formId", getFormHandler)               // GET /forms/{formId}
+		formRoutes.POST("", createFormHandler)                    // POST /forms
+		formRoutes.PUT("/:formId/questions", setQuestionsHandler) // PUT /forms/{formId}/questions")
+		formRoutes.GET("", listFormsHandler)                      // GET /forms
+		formRoutes.GET("/:formId", getFormHandler)                // GET /forms/{formId}
 		// Add PUT /forms/{formId} and DELETE /forms/{formId} handlers if needed
 
 		// Group response routes under /forms/{formId}/responses
@@ -614,6 +831,16 @@ func main() {
 			responseRoutes.GET("", getFormResponsesHandler) // GET /forms/{formId}/responses
 			// Add GET /forms/{formId}/responses/{responseId}, PUT, DELETE handlers if needed
 		}
+
+		authnRoutes := router.Group("/api/account")
+		{
+			authnRoutes.POST("/signup", signupHandler)
+			authnRoutes.POST("/signin", signinHandler)
+			authnRoutes.POST("/signout", logoutHandler)
+			authnRoutes.POST("/verify", verifyHandler)
+			authnRoutes.GET("/whoami", whoamiHandler)
+		}
+
 	}
 
 	// --- Start Server ---
