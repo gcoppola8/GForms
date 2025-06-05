@@ -25,7 +25,7 @@ services:
     restart: unless-stopped
     # Add environment variables if your backend needs them
     environment:
-      - DB_HOST=192.168.118.139
+      - DB_HOST=db
       - DB_NAME=gform_db
       - DB_PASSWORD=SECRET123
     #   - DATABASE_URL=postgres://user:password@db:5432/mydatabase?sslmode=disable
@@ -49,19 +49,19 @@ services:
 
 
   # --- Optional: Add other services like a database ---
-  # db:
-  #   image: postgres:15-alpine
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   environment:
-  #     POSTGRES_DB: mydatabase
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #   ports:
-  #     - "5432:5432" # Expose DB port only if needed for external access/debugging
-  #   container_name: myapp-db
-  #   restart: unless-stopped
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: gform_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: SECRET123
+    ports:
+      - "5432:5432" # Expose DB port only if needed for external access/debugging
+    container_name: db
+    restart: unless-stopped
 
 # --- Optional: Define named volumes for persistent data ---
-# volumes:
-#   postgres_data:
+volumes:
+  postgres_data:
