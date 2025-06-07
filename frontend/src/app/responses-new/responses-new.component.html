@@ -6,9 +6,38 @@
     @for (f of this.form?.questions; track f.id) {
     <clr-input-container>
         <label for="{{f.id}}">
-            {{f.text}} <br>
-            <input type="text" clrInput name="{{f.id}}" formControlName="{{f.id}}" />
+            {{f.text}}
+        <ng-container [ngSwitch]="f.type">
+            <input *ngSwitchCase="'text'" type="text" clrInput name="{{f.id}}" formControlName="{{f.id}}" />
+
+            <textarea *ngSwitchCase="'textarea'" clrTextarea name="{{f.id}}" formControlName="{{f.id}}"></textarea>
+
+            <input *ngSwitchCase="'number'" type="number" clrInput name="{{f.id}}" formControlName="{{f.id}}" />
+
+            <input *ngSwitchCase="'date'" type="date" clrInput name="{{f.id}}" formControlName="{{f.id}}" />
+
+            <select *ngSwitchCase="'select'" clrSelect name="{{f.id}}" formControlName="{{f.id}}">
+                <option *ngFor="let option of f.extra_info.split(',')" [value]="option">{{option}}</option>
+            </select>
+
+            <div *ngSwitchCase="'radio'">
+                <label *ngFor="let option of f.extra_info.split(',')" class="radio">
+                    <input type="radio" [value]="option" formControlName="{{f.id}}" name="{{f.id}}" />
+                    {{option}}
+                </label>
+            </div>
+
+            <div *ngSwitchCase="'checkbox'">
+                <ng-container *ngFor="let option of f.extra_info.split(',')" class="checkbox">
+                    <input type="checkbox" formControlName="{{f.id+option}}" name="{{f.id+option}} "/>
+                    {{option}}
+                </ng-container>
+            </div>
+
+            <input *ngSwitchDefault type="text" clrInput name="{{f.id}}" formControlName="{{f.id}}" />
+        </ng-container>
         </label>
+
     </clr-input-container>
     }
 

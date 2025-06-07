@@ -7,9 +7,16 @@ import {
   Question,
 } from '../../../services/gforms-backend.service';
 import { Subscription } from 'rxjs';
-import { ActivatedRoute } from '@angular/router';
+import { ActivatedRoute, Router } from '@angular/router';
 import { BrowserModule } from '@angular/platform-browser';
 import { ClarityModule } from '@clr/angular';
+
+class QuestionRequest {
+  text!: string;
+  type!: string;
+  extra_info!: string;
+  is_required!: boolean;
+}
 
 @Component({
   selector: 'app-questions-create',
@@ -20,6 +27,7 @@ import { ClarityModule } from '@clr/angular';
 export class QuestionsCreateComponent implements OnInit {
   // Array to hold all the questions
   questions: Question[] = [];
+  newQuestions: QuestionRequest[] = [];
   isLoading: boolean = false;
   error: string | null = null;
   forms: any;
@@ -30,8 +38,9 @@ export class QuestionsCreateComponent implements OnInit {
 
   constructor(
     private formService: FormService,
-    private route: ActivatedRoute
-  ) {}
+    private route: ActivatedRoute,
+    private router: Router
+  ) { }
 
   // Initialize the component
   ngOnInit(): void {
@@ -65,7 +74,9 @@ export class QuestionsCreateComponent implements OnInit {
         this.form = data;
         this.isLoading = false;
         console.log('Form details loaded:', this.form);
-        this.questions = this.form.questions;
+        if (this.form?.questions) {
+          this.questions = this.form.questions;
+        }
       },
       error: (err) => {
         console.error('Error loading form details:', err);
@@ -85,7 +96,6 @@ export class QuestionsCreateComponent implements OnInit {
       is_required: false,
       created_at: '',
       updated_at: '',
-      options_text: '',
     });
   }
 
@@ -104,14 +114,30 @@ export class QuestionsCreateComponent implements OnInit {
   onSubmit(): void {
     console.log('Form Submitted!');
     console.log('Questions Data:', this.questions);
-    // Here you would typically send the 'this.questions' array
-    // to your backend service or perform other actions.
-    // Example: this.formService.saveQuestions(this.questions).subscribe(...);
-
-    // You might want to add validation here before submitting
     if (this.isFormValid()) {
       console.log('Form is valid, proceeding with submission...');
-      // Add submission logic here
+
+      this.questions.map((q) => {
+        const questionRequest: QuestionRequest = {
+          text: q.text,
+          type: q.type,
+          extra_info: q.extra_info,
+          is_required: q.is_required,
+        };
+      });
+
+      this.formService.updateQuestions(this.form?.id || '', this.questions).subscribe({
+        next: (response) => {
+          console.log('Form updated successfully:', response);
+          alert('Form updated successfully!');
+          // redirect to the form details
+          this.router.navigate(['/forms', this.form?.id]);
+        },
+        error: (err) => {
+          console.error('Error updating form:', err);
+          this.error = err.message || 'Could not update form.';
+        }
+      });
     } else {
       console.error('Form is invalid. Please check the fields.');
       // Optionally, provide user feedback
@@ -125,6 +151,6 @@ export class QuestionsCreateComponent implements OnInit {
   }
 
   clearOptions(idx: number) {
-    this.questions[idx].options_text = '';
+    this.questions[idx].extra_info = '';
   }
 }

@@ -71,6 +71,13 @@ type Question struct {
 	DeletedAt  gorm.DeletedAt `json:"-" gorm:"index"`
 }
 
+type QuestionRequest struct {
+	Text       string `json:"text" binding:"required"`
+	Type       string `json:"type"`
+	IsRequired bool   `json:"is_required"`
+	ExtraInfo  string `json:"extra_info"`
+}
+
 // Answer represents a single answer to a question within a response
 type Answer struct {
 	ID         uuid.UUID      `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"` // Use DB generation for UUIDs
@@ -296,6 +303,7 @@ func (form *Form) AddQuestion(question *Question) error {
 	}
 
 	form.Questions = append(form.Questions, *question)
+
 	return UpdateForm(form)
 }
 
@@ -422,6 +430,7 @@ func createFormHandler(c *gin.Context) {
 
 func setQuestionsHandler(c *gin.Context) {
 	formIDStr := c.Param("formId")
+	var questionsRequest []QuestionRequest
 	var questions []Question
 
 	foundForm, err := GetFormByID(formIDStr)
@@ -432,27 +441,46 @@ func setQuestionsHandler(c *gin.Context) {
 		return
 	}
 
-	if err := c.ShouldBindJSON(&questions); err != nil {
+	if err := c.ShouldBindJSON(&questionsRequest); err != nil {
 		log.Printf("Error binding JSON questions: %v", err)
 		c.JSON(http.StatusBadRequest, "Invalid or incomplete JSON request: "+err.Error())
 		return
 	}
 
-	if len(questions) > 50 {
+	if len(questionsRequest) > 50 {
 		log.Printf("Error too many questions (max length is 50)")
 		c.JSON(http.StatusBadRequest, "Too many questions (max length is 50)")
 		return
 	}
 
-	foundForm.SetQuestions(questions)
-
-	for _, q := range questions {
-		if err := foundForm.AddQuestion(&q); err != nil {
-			log.Printf("Error adding question to form: %v", err)
-			c.JSON(http.StatusInternalServerError, "Could not add question to form")
-			return
-		}
+	tx := DB.Begin()
+	if err := tx.Where("form_id = ?", formIDStr).Delete(&Question{}).Error; err != nil {
+		tx.Rollback()
+		return
 	}
+
+	for i := range questionsRequest {
+		var question Question
+		question.Text = questionsRequest[i].Text
+		question.Type = questionsRequest[i].Type
+		question.IsRequired = questionsRequest[i].IsRequired
+		question.ExtraInfo = questionsRequest[i].ExtraInfo
+		question.FormID = foundForm.ID
+		question.CreatedAt = time.Now()
+		question.UpdatedAt = time.Now()
+		questions = append(questions, question)
+	}
+
+	if err := tx.Create(&questions).Error; err != nil {
+		log.Printf("Error creating questions in DB: %v", err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Could not save questions"})
+		tx.Rollback()
+		return
+	}
+
+	foundForm.Questions = questions // Update the form with the new questions
+
+	tx.Commit()
 
 	c.JSON(http.StatusOK, foundForm)
 

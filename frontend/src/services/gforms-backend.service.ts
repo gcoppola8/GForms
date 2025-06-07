@@ -12,9 +12,8 @@ export interface Question {
   type: string; // Consider using a literal type if possible, e.g., 'rating' | 'text' | 'multiple_choice'
   extra_info: string;
   is_required: boolean;
-  created_at: string; // ISO 8601 Date string
-  updated_at: string; // ISO 8601 Date string
-  options_text: string | null;
+  created_at: string | null; // ISO 8601 Date string
+  updated_at: string | null; // ISO 8601 Date string
 }
 
 /**
@@ -60,7 +59,6 @@ export type NewFormResponse = Omit<FormResponse, 'id' | 'created_at' | 'updated_
 })
 // Renamed class to match the file name and purpose
 export class FormService {
-
   // Adjusted apiUrl to point to a potential 'forms' endpoint. Modify if your backend uses a different path.
   private apiUrl = 'http://localhost:8080/forms';
 
@@ -145,31 +143,40 @@ export class FormService {
 
   // --- Responses Methods ---
 
-   /**
-   * GET: Retrieve all responses for a specific form.
-   * @param formId The UUID string of the form.
-   * @returns Observable<FormResponse[]> An array of response objects.
-   */
-    getFormResponses(formId: string): Observable<FormResponse[]> {
-      const url = `${this.apiUrl}/${formId}/responses`;
-      return this.http.get<FormResponse[]>(url)
-        .pipe(
-          catchError(this.handleError)
-        );
-    }
+  /**
+  * GET: Retrieve all responses for a specific form.
+  * @param formId The UUID string of the form.
+  * @returns Observable<FormResponse[]> An array of response objects.
+  */
+  getFormResponses(formId: string): Observable<FormResponse[]> {
+    const url = `${this.apiUrl}/${formId}/responses`;
+    return this.http.get<FormResponse[]>(url)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
 
-    /**
-     * @param formId 
-     * @param response 
-     * @returns 
-     */    
-    submitFormResponse(formId: string, response: NewFormResponse): Observable<any> {
-      const url = `${this.apiUrl}/${formId}/responses`;
-      return this.http.post(url, response, this.httpOptions)
-        .pipe(
-          catchError(this.handleError)
-        );
-    }
+  /**
+   * @param formId 
+   * @param response 
+   * @returns 
+   */
+  submitFormResponse(formId: string, response: NewFormResponse): Observable<any> {
+    const url = `${this.apiUrl}/${formId}/responses`;
+    return this.http.post(url, response, this.httpOptions)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
+  updateQuestions(formId: string, questions: Question[]) {
+    const url = `${this.apiUrl}/${formId}/questions`;
+    return this.http.put(url, questions, this.httpOptions)
+      .pipe(
+        catchError(this.handleError)
+      );
+  }
+
 
 
   // --- Error Handling ---
@@ -183,9 +190,9 @@ export class FormService {
       errorMessage = `Server returned code ${error.status}, error message is: ${error.message}`;
       // You could try to extract a more specific error message from error.error if the backend sends one
       if (error.error && typeof error.error === 'object' && error.error.message) {
-         errorMessage += ` - ${error.error.message}`;
+        errorMessage += ` - ${error.error.message}`;
       } else if (error.error && typeof error.error === 'string') {
-         errorMessage += ` - ${error.error}`;
+        errorMessage += ` - ${error.error}`;
       }
     }
     console.error(errorMessage, error); // Log the full error object too

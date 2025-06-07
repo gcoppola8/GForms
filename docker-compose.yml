@@ -14,6 +14,8 @@ services:
       # Rule 1: Rebuild the image if package files change
         - path: ./frontend/src
           action: rebuild
+    networks:
+      - net1
 
   backend:
     build:
@@ -25,14 +27,14 @@ services:
     restart: unless-stopped
     # Add environment variables if your backend needs them
     environment:
-      - DB_HOST=192.168.118.139
+      - DB_HOST=db
       - DB_NAME=gform_db
       - DB_PASSWORD=SECRET123
     #   - DATABASE_URL=postgres://user:password@db:5432/mydatabase?sslmode=disable
     #   - API_KEY=your_secret_key
     # Add depends_on if the backend relies on other services (like a database)
-    # depends_on:
-    #   - db
+    depends_on:
+      - db
     develop:
       watch:
       # Rule 1: Rebuild the image if package files change
@@ -46,22 +48,26 @@ services:
         # Useful if your backend doesn't support hot-reloading easily
         # - path: ./backend/src
         #   action: rebuild
+    networks:
+      - net1
 
+  db:
+    image: postgres:17-alpine
+    container_name: db
+    volumes:
+      - gform_volume:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: gform_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: SECRET123
+    ports:
+      - "5432:5432" # Expose DB port only if needed for external access/debugging
+    restart: unless-stopped
+    networks:
+      - net1
 
-  # --- Optional: Add other services like a database ---
-  # db:
-  #   image: postgres:15-alpine
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   environment:
-  #     POSTGRES_DB: mydatabase
-  #     POSTGRES_USER: user
-  #     POSTGRES_PASSWORD: password
-  #   ports:
-  #     - "5432:5432" # Expose DB port only if needed for external access/debugging
-  #   container_name: myapp-db
-  #   restart: unless-stopped
+networks:
+  net1:
 
-# --- Optional: Define named volumes for persistent data ---
-# volumes:
-#   postgres_data:
+volumes:
+  gform_volume:

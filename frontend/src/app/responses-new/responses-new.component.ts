@@ -41,7 +41,6 @@ export class ResponsesNewComponent implements OnInit, OnDestroy {
         this.isLoading = false;
       }
     });
-
   }
 
   ngOnDestroy(): void {
@@ -76,7 +75,6 @@ export class ResponsesNewComponent implements OnInit, OnDestroy {
     });
   }
 
-
   sendResponse(): void {
     if (this.form?.questions === undefined || this.form?.questions.length === 0) {
       console.log('Form has no questions to submit.');
@@ -92,7 +90,7 @@ export class ResponsesNewComponent implements OnInit, OnDestroy {
     this.form!.questions.forEach(question => {
       nfr.answers?.push({
         question_id: question.id,
-        value: this.QuestionsForm.get(question.id)?.value,
+        value: String(this.QuestionsForm.get(question.id)?.value),
       });
     });
 
@@ -112,4 +110,3 @@ export class ResponsesNewComponent implements OnInit, OnDestroy {
     
   }
 }
-
