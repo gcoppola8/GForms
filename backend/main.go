@@ -278,10 +278,12 @@ func GetFormByID(id string) (*Form, error) {
 }
 
 // GetAllForms retrieves all forms with their questions.
-func GetAllForms() ([]Form, error) {
+func GetAllFormsByUser(userId string) ([]Form, error) {
 	var forms []Form
 	// Use Find to get multiple records. Preload questions for each form.
-	result := DB.Preload("Questions").Order("created_at desc").Find(&forms) // Example: Order by creation time
+	result := DB.Preload("Questions").
+		Where("deleted_at IS NULL AND creator_user_id=?", userId).
+		Order("created_at desc").Find(&forms)
 	if result.Error != nil {
 		return nil, result.Error
 	}
@@ -400,6 +402,13 @@ func DeleteResponse(id string) error {
 func createFormHandler(c *gin.Context) {
 	var newForm Form
 
+	session := sessions.Default(c)
+
+	if session.Get("username") == nil {
+		http.Redirect(c.Writer, c.Request, "/api/account/login", http.StatusSeeOther)
+		return
+	}
+
 	// Bind JSON payload to the Form struct
 	if err := c.ShouldBindJSON(&newForm); err != nil {
 		log.Printf("Error binding JSON form: %v", err)
@@ -414,6 +423,17 @@ func createFormHandler(c *gin.Context) {
 		}
 		// DB will generate Question IDs
 	}
+
+	var userFound User
+	DB.Find(&userFound, "username = ?", session.Get("username"))
+
+	if userFound.ID == uuid.Nil {
+		log.Printf("Error: User not found for session username %s", session.Get("username"))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
+	}
+
+	newForm.CreatorUserID = userFound.ID.String()
 
 	// Attempt to create the form in the database
 	if err := CreateForm(&newForm); err != nil {
@@ -488,16 +508,28 @@ func setQuestionsHandler(c *gin.Context) {
 
 // listFormsHandler handles GET /forms requests.
 func listFormsHandler(c *gin.Context) {
-	allForms, err := GetAllForms()
+
+	session := sessions.Default(c)
+
+	if session.Get("username") == nil {
+		http.Redirect(c.Writer, c.Request, "/api/account/login", http.StatusSeeOther)
+		return
+	}
+
+	var userFound User
+	DB.Find(&userFound, "username = ?", session.Get("username"))
+
+	if userFound.ID == uuid.Nil {
+		log.Printf("Error: User not found for session username %s", session.Get("username"))
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "User not found"})
+		return
+	}
+
+	allForms, err := GetAllFormsByUser(userFound.ID.String())
 	if err != nil {
 		log.Printf("Error retrieving forms: %v", err)
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error retrieving forms"})
 		return
-	}
-
-	log.Printf("Received %d cookies", len(c.Request.Cookies()))
-	for _, cookie := range c.Request.Cookies() {
-		log.Printf("Received cookie: %s=%s", cookie.Name, cookie.Value)
 	}
 
 	// Return the list of forms (will be an empty array [] if none found)
@@ -747,8 +779,12 @@ func logoutHandler(c *gin.Context) {
 func verifyHandler(c *gin.Context) {
 	verificationParam := c.Query("verificationCode")
 
+	log.Printf("Received verification code: %s", verificationParam)
+
 	var verification Verification
 	DB.Find(&verification, "verification_code = ?", verificationParam)
+
+	log.Printf("Verification record found: %+v", verification)
 
 	if verification.ID == 0 {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Invalid verification code"})
@@ -770,7 +806,6 @@ func verifyHandler(c *gin.Context) {
 	user.Verified = true
 	DB.Save(&user)
 	DB.Delete(&verification) // Delete the verification record after successful verification
-
 }
 
 func whoamiHandler(c *gin.Context) {

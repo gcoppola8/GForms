@@ -1,5 +1,9 @@
 import { inject, Injectable } from '@angular/core';
-import { HttpClient, HttpHeaders, HttpErrorResponse } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpHeaders,
+  HttpErrorResponse,
+} from '@angular/common/http';
 import { Observable, throwError } from 'rxjs';
 import { catchError } from 'rxjs/operators';
 
@@ -7,6 +11,9 @@ import { catchError } from 'rxjs/operators';
  * Represents a single question within a form.
  */
 export interface Question {
+  description: any;
+  required: any;
+  placeholder: any;
   id: string; // UUID
   text: string;
   type: string; // Consider using a literal type if possible, e.g., 'rating' | 'text' | 'multiple_choice'
@@ -29,7 +36,7 @@ export interface Form {
   updated_at: string; // ISO 8601 Date string
 }
 
-/** 
+/**
  * Represents the response object
  */
 export interface FormResponse {
@@ -49,13 +56,20 @@ export interface Answer {
   updated_at: string;
 }
 
-export type NewFormDto = Omit<Form, 'id' | 'created_at' | 'updated_at' | 'questions'> & { questions?: Omit<Question, 'id' | 'created_at' | 'updated_at'>[] };
-export type UpdateFormDto = Partial<Omit<Form, 'id' | 'creator_user_id' | 'created_at' | 'updated_at'>>;
-export type NewFormResponse = Omit<FormResponse, 'id' | 'created_at' | 'updated_at' | 'answers'> & { answers?: Omit<Answer, 'id' | 'created_at' | 'updated_at'>[] };
-
+export type NewFormDto = Omit<
+  Form,
+  'id' | 'created_at' | 'updated_at' | 'questions'
+> & { questions?: Omit<Question, 'id' | 'created_at' | 'updated_at'>[] };
+export type UpdateFormDto = Partial<
+  Omit<Form, 'id' | 'creator_user_id' | 'created_at' | 'updated_at'>
+>;
+export type NewFormResponse = Omit<
+  FormResponse,
+  'id' | 'created_at' | 'updated_at' | 'answers'
+> & { answers?: Omit<Answer, 'id' | 'created_at' | 'updated_at'>[] };
 
 @Injectable({
-  providedIn: 'root'
+  providedIn: 'root',
 })
 // Renamed class to match the file name and purpose
 export class FormService {
@@ -66,10 +80,10 @@ export class FormService {
 
   private httpOptions = {
     headers: new HttpHeaders({
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
       // Add other headers here if needed (e.g., Authorization)
     }),
-    withCredentials: true
+    withCredentials: true,
   };
 
   // --- Form Methods ---
@@ -79,10 +93,9 @@ export class FormService {
    * @returns Observable<Form[]>
    */
   getForms(): Observable<Form[]> {
-    return this.http.get<Form[]>(this.apiUrl, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .get<Form[]>(this.apiUrl, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -92,10 +105,9 @@ export class FormService {
    */
   getFormById(id: string): Observable<Form> {
     const url = `${this.apiUrl}/${id}`;
-    return this.http.get<Form>(url, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .get<Form>(url, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -106,10 +118,9 @@ export class FormService {
    * @returns Observable<Form> The newly created form object from the backend.
    */
   createForm(formData: NewFormDto): Observable<Form> {
-    return this.http.post<Form>(this.apiUrl, formData, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .post<Form>(this.apiUrl, formData, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -122,10 +133,9 @@ export class FormService {
   updateForm(id: string, formData: UpdateFormDto): Observable<Form> {
     const url = `${this.apiUrl}/${id}`;
     // Using PUT here, some APIs might use PATCH for partial updates
-    return this.http.put<Form>(url, formData, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .put<Form>(url, formData, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   /**
@@ -135,49 +145,46 @@ export class FormService {
    */
   deleteForm(id: string): Observable<any> {
     const url = `${this.apiUrl}/${id}`;
-    return this.http.delete(url, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .delete(url, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   // --- Responses Methods ---
 
   /**
-  * GET: Retrieve all responses for a specific form.
-  * @param formId The UUID string of the form.
-  * @returns Observable<FormResponse[]> An array of response objects.
-  */
+   * GET: Retrieve all responses for a specific form.
+   * @param formId The UUID string of the form.
+   * @returns Observable<FormResponse[]> An array of response objects.
+   */
   getFormResponses(formId: string): Observable<FormResponse[]> {
     const url = `${this.apiUrl}/${formId}/responses`;
-    return this.http.get<FormResponse[]>(url)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .get<FormResponse[]>(url)
+      .pipe(catchError(this.handleError));
   }
 
   /**
-   * @param formId 
-   * @param response 
-   * @returns 
+   * @param formId
+   * @param response
+   * @returns
    */
-  submitFormResponse(formId: string, response: NewFormResponse): Observable<any> {
+  submitFormResponse(
+    formId: string,
+    response: NewFormResponse
+  ): Observable<any> {
     const url = `${this.apiUrl}/${formId}/responses`;
-    return this.http.post(url, response, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .post(url, response, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
 
   updateQuestions(formId: string, questions: Question[]) {
     const url = `${this.apiUrl}/${formId}/questions`;
-    return this.http.put(url, questions, this.httpOptions)
-      .pipe(
-        catchError(this.handleError)
-      );
+    return this.http
+      .put(url, questions, this.httpOptions)
+      .pipe(catchError(this.handleError));
   }
-
-
 
   // --- Error Handling ---
   private handleError(error: HttpErrorResponse) {
@@ -189,7 +196,11 @@ export class FormService {
       // Backend returned an unsuccessful response code
       errorMessage = `Server returned code ${error.status}, error message is: ${error.message}`;
       // You could try to extract a more specific error message from error.error if the backend sends one
-      if (error.error && typeof error.error === 'object' && error.error.message) {
+      if (
+        error.error &&
+        typeof error.error === 'object' &&
+        error.error.message
+      ) {
         errorMessage += ` - ${error.error.message}`;
       } else if (error.error && typeof error.error === 'string') {
         errorMessage += ` - ${error.error}`;
@@ -197,6 +208,11 @@ export class FormService {
     }
     console.error(errorMessage, error); // Log the full error object too
     // Return an observable with a user-facing error message.
-    return throwError(() => new Error('Something went wrong with the form operation. Please try again later.'));
+    return throwError(
+      () =>
+        new Error(
+          'Something went wrong with the form operation. Please try again later.'
+        )
+    );
   }
 }

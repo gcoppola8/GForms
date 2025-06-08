@@ -3,16 +3,17 @@ import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angula
 import { Router } from '@angular/router';
 import { CommonModule } from '@angular/common';
 import { FormService, NewFormDto } from '../../services/gforms-backend.service';
+import { ClarityModule } from '@clr/angular';
 
 @Component({
   selector: 'app-forms-new',
   standalone: true,
   imports: [
     CommonModule,
-    ReactiveFormsModule
+    ReactiveFormsModule,
+    ClarityModule
   ],
   templateUrl: './forms-new.component.html',
-  styleUrls: ['./forms-new.component.css']
 })
 export class FormsNewComponent implements OnInit {
 

@@ -9,7 +9,6 @@ import { Form, FormService } from '../../services/gforms-backend.service';
   // Add RouterLink here:
   imports: [RouterLink, CommonModule],
   templateUrl: './forms-list.component.html',
-  styleUrl: './forms-list.component.css',
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class FormsListComponent {

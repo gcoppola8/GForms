@@ -66,8 +66,26 @@ services:
     networks:
       - net1
 
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: gform-pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: SECRET123
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "5050:80" # Access pgAdmin at http://localhost:5050
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - db
+    restart: unless-stopped
+    networks:
+      - net1
+
 networks:
   net1:
 
 volumes:
   gform_volume:
+  pgadmin_data:

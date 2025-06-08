@@ -96,6 +96,9 @@ export class QuestionsCreateComponent implements OnInit {
       is_required: false,
       created_at: '',
       updated_at: '',
+      required: false,
+      description: '',
+      placeholder: ''
     });
   }
 

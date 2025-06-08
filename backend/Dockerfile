@@ -1,5 +1,5 @@
 # Stage 1: Build the Go application
-FROM golang:1.24-alpine AS builder
+FROM golang:1.24 AS builder
 WORKDIR /app
 
 # Copy go module files and download dependencies first to leverage cache

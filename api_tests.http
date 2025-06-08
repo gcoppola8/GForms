@@ -29,6 +29,14 @@ Content-Type: application/json
   ]
 }
 
+### List all Users
+POST {{baseUrl}}/api/account/verify?verificationCode=6bfafa78-237f-4169-a239-b11d23053c1e
+Content-Type: application/json
+
+{
+}
+
+
 ### List all Forms
 # Retrieves a list of all created forms.
 GET {{baseUrl}}/forms
@@ -61,4 +69,6 @@ Content-Type: application/json
 # Retrieves all responses submitted for a particular form.
 # NOTE: Replace {{formId}} with the target Form ID.
 GET {{baseUrl}}/forms/{{formId}}/responses
+
+
 
